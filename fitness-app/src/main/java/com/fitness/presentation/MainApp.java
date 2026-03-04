@@ -179,6 +179,40 @@ public class MainApp extends Application {
         return container;
     }
 
+    private VBox createRoutineManagementView(Stage stage) {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(25));
+        container.getStyleClass().add("main-container");
+
+        Label title = new Label("나만의 루틴 관리");
+        title.getStyleClass().add("title-label");
+
+        ListView<Routine> routineListView = new ListView<>();
+        routineListView.getItems().addAll(currentUser.getSavedRoutines());
+        routineListView.setPrefHeight(200);
+
+        Button createBtn = new Button("+ 새 루틴 만들기");
+        createBtn.getStyleClass().add("primary-button");
+        createBtn.setMaxWidth(Double.MAX_VALUE);
+        createBtn.setOnAction(e -> showCustomRoutineDesigner(stage));
+
+        Button selectBtn = new Button("선택한 루틴 대시보드에 적용");
+        selectBtn.getStyleClass().add("primary-button");
+        selectBtn.setStyle("-fx-background-color: #00b894;");
+        selectBtn.setMaxWidth(Double.MAX_VALUE);
+        selectBtn.setOnAction(e -> {
+            Routine selected = routineListView.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                workoutManager.setStrategy(user -> selected);
+                mainTabPane.getSelectionModel().select(0); // 대시보드 탭으로 이동
+                showAlert(selected.getRoutineName() + " 루틴이 적용되었습니다.");
+            }
+        });
+
+        container.getChildren().addAll(title, new Label("저장된 루틴 목록:"), routineListView, selectBtn, createBtn);
+        return container;
+    }
+
     private void showWorkoutRecordingUI(Stage stage, Routine routine) {
         VBox root = new VBox(20);
         root.setPadding(new Insets(30));
