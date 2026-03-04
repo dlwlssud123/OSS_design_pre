@@ -212,12 +212,37 @@ public class MainApp extends Application {
         Label title = new Label("나만의 루틴 만들기");
         title.getStyleClass().add("title-label");
 
-        Label subtitle = new Label("라이브러리에서 운동을 선택하세요:");
-        subtitle.getStyleClass().add("info-label");
+        Label categoryLabel = new Label("1. 운동 부위 선택:");
+        categoryLabel.getStyleClass().add("info-label");
+
+        ComboBox<String> categoryCombo = new ComboBox<>();
+        categoryCombo.getItems().addAll("전체", "가슴", "등", "하체", "어깨", "이두", "삼두", "유산소");
+        categoryCombo.setValue("전체");
+        categoryCombo.setMaxWidth(Double.MAX_VALUE);
+
+        Label exerciseLabel = new Label("2. 운동 종목 선택 (다중 선택 가능):");
+        exerciseLabel.getStyleClass().add("info-label");
 
         ListView<Exercise> exerciseList = new ListView<>();
-        exerciseList.getItems().addAll(com.fitness.service.ExerciseLibrary.getAllExercises());
+        java.util.List<Exercise> allExercises = com.fitness.service.ExerciseLibrary.getAllExercises();
+        exerciseList.getItems().addAll(allExercises);
         exerciseList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        
+        // 필터링 로직 추가
+        categoryCombo.setOnAction(e -> {
+            String selectedCategory = categoryCombo.getValue();
+            exerciseList.getItems().clear();
+            if ("전체".equals(selectedCategory)) {
+                exerciseList.getItems().addAll(allExercises);
+            } else {
+                for (Exercise ex : allExercises) {
+                    if (ex.getTargetMuscle().contains(selectedCategory)) {
+                        exerciseList.getItems().add(ex);
+                    }
+                }
+            }
+        });
+
         exerciseList.setCellFactory(lv -> new ListCell<Exercise>() {
             @Override
             protected void updateItem(Exercise item, boolean empty) {
@@ -225,7 +250,7 @@ public class MainApp extends Application {
                 if (empty || item == null) {
                     setText(null);
                 } else {
-                    setText(item.getName() + " (" + item.getTargetMuscle() + ")");
+                    setText(item.getName() + " [" + item.getTargetMuscle() + "]");
                 }
             }
         });
@@ -254,10 +279,10 @@ public class MainApp extends Application {
         backBtn.getStyleClass().add("danger-button");
         backBtn.setOnAction(e -> showDashboard(stage));
 
-        container.getChildren().addAll(title, subtitle, exerciseList, addBtn, backBtn);
+        container.getChildren().addAll(title, categoryLabel, categoryCombo, exerciseLabel, exerciseList, addBtn, backBtn);
         root.getChildren().add(container);
 
-        Scene scene = new Scene(root, 500, 600);
+        Scene scene = new Scene(root, 500, 650);
         if (getClass().getResource("/style.css") != null) {
             scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
         }
