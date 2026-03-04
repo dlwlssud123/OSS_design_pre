@@ -97,7 +97,7 @@ public class MainApp extends Application {
 
         TextField nameField = new TextField(); nameField.setPromptText("이름");
         TextField weightField = new TextField(); weightField.setPromptText("현재 체중 (kg)");
-        TextField targetField = new TextField(); targetWeightField.setPromptText("목표 체중 (kg)");
+        TextField targetField = new TextField(); targetField.setPromptText("목표 체중 (kg)");
         ComboBox<String> goalCombo = new ComboBox<>();
         goalCombo.getItems().addAll("근비대", "다이어트", "체력 증진");
         goalCombo.setPromptText("운동 목적");

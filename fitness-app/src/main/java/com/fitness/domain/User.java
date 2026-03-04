@@ -53,4 +53,13 @@ public class User implements Serializable {
         return savedRoutines;
     }
     public void addRoutine(Routine routine) { getSavedRoutines().add(routine); }
+
+    public void updateProfile(String name, double weight, double targetWeight, String goal) {
+        this.name = name;
+        this.weight = weight;
+        this.targetWeight = targetWeight;
+        this.goal = goal;
+        // 체중이 변경된 경우 새로운 체성분 기록 추가
+        this.bodyMetrics.add(new BodyMetric(weight, 0, 0));
+    }
 }
