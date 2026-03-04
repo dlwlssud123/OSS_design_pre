@@ -6,7 +6,14 @@ public class WeightExercise extends Exercise {
     private double weight;
 
     public WeightExercise(String name, String targetMuscle, String description, int sets, int reps, double weight) {
-        super(name, targetMuscle, description);
+        super(name, targetMuscle, description, ""); // Default empty URL
+        this.sets = sets;
+        this.reps = reps;
+        this.weight = weight;
+    }
+
+    public WeightExercise(String name, String targetMuscle, String description, String videoUrl, int sets, int reps, double weight) {
+        super(name, targetMuscle, description, videoUrl);
         this.sets = sets;
         this.reps = reps;
         this.weight = weight;

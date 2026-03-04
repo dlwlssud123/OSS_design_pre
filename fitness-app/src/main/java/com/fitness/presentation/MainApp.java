@@ -225,46 +225,100 @@ public class MainApp extends Application {
         Label title = new Label(routine.getRoutineName() + " 진행 중");
         title.getStyleClass().add("title-label");
 
-        com.fitness.domain.WorkoutSession session = new com.fitness.domain.WorkoutSession(routine.getRoutineName());
+        // [One-tap] 이전 기록 찾아오기 로직
+        com.fitness.domain.WorkoutSession lastSession = currentUser.getWorkoutSessions().stream()
+                .filter(s -> s.getRoutineName().equals(routine.getRoutineName()))
+                .reduce((first, second) -> second).orElse(null);
+
+        com.fitness.domain.WorkoutSession currentSession = new com.fitness.domain.WorkoutSession(routine.getRoutineName());
         
-        TextField weightInput = new TextField(); weightInput.setPromptText("무게 (kg)");
-        TextField repsInput = new TextField(); repsInput.setPromptText("횟수 (reps)");
+        TextField weightInput = new TextField(); 
+        TextField repsInput = new TextField(); 
+        
+        // 이전 기록이 있으면 자동으로 채우기
+        if (lastSession != null && !lastSession.getSetRecords().isEmpty()) {
+            var lastSet = lastSession.getSetRecords().get(0);
+            weightInput.setText(String.valueOf(lastSet.getWeight()));
+            repsInput.setText(String.valueOf(lastSet.getReps()));
+            showAlert("이전 기록을 불러왔습니다: " + lastSet.getWeight() + "kg x " + lastSet.getReps() + "회");
+        } else {
+            weightInput.setPromptText("무게 (kg)");
+            repsInput.setPromptText("횟수 (reps)");
+        }
         
         ListView<String> currentSessionSets = new ListView<>();
-        currentSessionSets.setPrefHeight(200);
+        currentSessionSets.setPrefHeight(150);
 
-        Button addSetBtn = new Button("세트 기록 추가");
+        // [타이머] UI
+        Label timerLabel = new Label("휴식 시간: - ");
+        timerLabel.setStyle("-fx-font-size: 18px; -fx-text-fill: #e67e22; -fx-font-weight: bold;");
+        
+        Button addSetBtn = new Button("세트 기록 추가 & 휴식 시작");
+        addSetBtn.getStyleClass().add("primary-button");
         addSetBtn.setOnAction(e -> {
             try {
                 double w = Double.parseDouble(weightInput.getText());
                 int r = Integer.parseInt(repsInput.getText());
-                com.fitness.domain.SetRecord record = new com.fitness.domain.SetRecord("운동", session.getSetRecords().size() + 1, w, r);
-                session.addSetRecord(record);
+                com.fitness.domain.SetRecord record = new com.fitness.domain.SetRecord("운동", currentSession.getSetRecords().size() + 1, w, r);
+                currentSession.addSetRecord(record);
                 currentSessionSets.getItems().add(String.format("Set %d: %.1fkg x %d", record.getSetNumber(), w, r));
+                
+                // 휴식 타이머 가동 (60초)
+                startRestTimer(timerLabel);
             } catch (Exception ex) { showAlert("숫자를 입력하세요."); }
         });
 
+        // [시각화] 가이드 링크
+        VBox guideBox = new VBox(5);
+        Label guideTitle = new Label("운동 가이드:");
+        guideTitle.getStyleClass().add("info-label");
+        guideBox.getChildren().add(guideTitle);
+        
+        for (Exercise ex : routine.getExercises()) {
+            if (ex.getVideoUrl() != null && !ex.getVideoUrl().isEmpty()) {
+                Hyperlink link = new Hyperlink(ex.getName() + " 영상 가이드 보기");
+                link.setOnAction(ev -> getHostServices().showDocument(ex.getVideoUrl()));
+                guideBox.getChildren().add(link);
+            }
+        }
+
         Button finishBtn = new Button("운동 종료 및 저장");
         finishBtn.getStyleClass().add("primary-button");
+        finishBtn.setStyle("-fx-background-color: #27ae60;");
         finishBtn.setMaxWidth(Double.MAX_VALUE);
         finishBtn.setOnAction(e -> {
-            if (session.getSetRecords().isEmpty()) {
+            if (currentSession.getSetRecords().isEmpty()) {
                 showAlert("기록된 세트가 없습니다.");
                 return;
             }
-            session.endSession();
-            currentUser.addWorkoutSession(session);
+            currentSession.endSession();
+            currentUser.addWorkoutSession(currentSession);
             workoutManager.saveUser();
             showMainUI(stage);
-            showAlert("운동이 기록되었습니다! 총 볼륨: " + session.getTotalVolume() + "kg");
+            showAlert("운동이 기록되었습니다! 총 볼륨: " + currentSession.getTotalVolume() + "kg");
         });
 
-        container.getChildren().addAll(title, new Label("현재 세트 기록:"), weightInput, repsInput, addSetBtn, currentSessionSets, finishBtn);
+        container.getChildren().addAll(title, guideBox, new Label("기록 입력:"), weightInput, repsInput, addSetBtn, timerLabel, currentSessionSets, finishBtn);
         root.getChildren().add(container);
 
-        Scene scene = new Scene(root, 500, 700);
+        Scene scene = new Scene(root, 550, 800);
         loadCSS(scene);
         stage.setScene(scene);
+    }
+
+    private void startRestTimer(Label label) {
+        final int[] time = {60};
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> {
+                time[0]--;
+                label.setText("휴식 시간: " + time[0] + "초 남음");
+                if (time[0] <= 0) {
+                    label.setText("휴식 종료! 다음 세트를 시작하세요.");
+                }
+            })
+        );
+        timeline.setCycleCount(60);
+        timeline.play();
     }
 
     private VBox createLogView() {

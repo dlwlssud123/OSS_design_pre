@@ -5,7 +5,13 @@ public class CardioExercise extends Exercise {
     private int intensity;
 
     public CardioExercise(String name, String targetMuscle, String description, int durationMinutes, int intensity) {
-        super(name, targetMuscle, description);
+        super(name, targetMuscle, description, ""); // Default empty URL
+        this.durationMinutes = durationMinutes;
+        this.intensity = intensity;
+    }
+
+    public CardioExercise(String name, String targetMuscle, String description, String videoUrl, int durationMinutes, int intensity) {
+        super(name, targetMuscle, description, videoUrl);
         this.durationMinutes = durationMinutes;
         this.intensity = intensity;
     }
