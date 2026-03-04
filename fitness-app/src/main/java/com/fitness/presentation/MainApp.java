@@ -77,6 +77,7 @@ public class MainApp extends Application {
         Object data = repo.load();
         if (data instanceof User) {
             currentUser = (User) data;
+            workoutManager.setUser(currentUser); // 사용자 설정 시 전략 자동 업데이트
             showMainUI();
         } else {
             showOnboarding(userId);
@@ -339,7 +340,6 @@ public class MainApp extends Application {
         Button refreshBtn = new Button("추천 루틴 새로고침");
         refreshBtn.getStyleClass().add("primary-button");
         refreshBtn.setOnAction(e -> {
-            applyAutoStrategy();
             Routine r = workoutManager.recommendRoutine();
             if (r != null) {
                 StringBuilder sb = new StringBuilder("== " + r.getRoutineName() + " ==\n");
@@ -352,7 +352,6 @@ public class MainApp extends Application {
         startBtn.getStyleClass().add("primary-button");
         startBtn.setStyle("-fx-background-color: #6c5ce7;");
         startBtn.setOnAction(e -> {
-            applyAutoStrategy();
             Routine r = workoutManager.recommendRoutine();
             if (r != null) showWorkoutRecordingUI(r);
         });
@@ -440,13 +439,6 @@ public class MainApp extends Application {
 
         container.getChildren().addAll(title, nameLabel, goalLabel, new Separator(), new Label("목적 변경 (기존 데이터는 유지됩니다):"), changeGoal, saveGoalBtn, new Separator(), logoutBtn);
         return container;
-    }
-
-    private void applyAutoStrategy() {
-        String goal = currentUser.getGoal();
-        if ("근비대".equals(goal)) workoutManager.setStrategy(new com.fitness.service.HypertrophyStrategy());
-        else if ("다이어트".equals(goal)) workoutManager.setStrategy(new com.fitness.service.DietStrategy());
-        else workoutManager.setStrategy(new com.fitness.service.BeginnerStrategy());
     }
 
     private void loadCSS(Scene scene) {

@@ -20,9 +20,17 @@ public class WorkoutManager {
 
     public void setUser(User user) {
         this.currentUser = user;
+        updateStrategyFromUser();
+    }
+
+    private void updateStrategyFromUser() {
+        if (currentUser != null) {
+            this.recStrategy = RecommendationStrategyFactory.getStrategy(currentUser.getGoal());
+        }
     }
 
     public Routine recommendRoutine() {
+        updateStrategyFromUser(); // 최신 목표 반영
         if (recStrategy != null && currentUser != null) {
             currentRoutine = recStrategy.recommend(currentUser);
             return currentRoutine;
