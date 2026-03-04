@@ -1,16 +1,14 @@
 package com.fitness.presentation;
 
-import com.fitness.domain.Exercise;
-import com.fitness.domain.Routine;
-import com.fitness.domain.User;
+import com.fitness.domain.*;
 import com.fitness.infrastructure.FileRepository;
-import com.fitness.service.BeginnerStrategy;
-import com.fitness.service.WorkoutManager;
+import com.fitness.service.*;
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -18,33 +16,74 @@ import java.util.List;
 
 public class MainApp extends Application {
 
-    private static final String USER_DATA_FILE = "user_data.dat";
+    private static final String USERS_DIR = "users/";
     private WorkoutManager workoutManager;
     private User currentUser;
     private TabPane mainTabPane;
-
-    @Override
-    public void init() throws Exception {
-        super.init();
-        FileRepository repo = new FileRepository(USER_DATA_FILE);
-        workoutManager = new WorkoutManager(repo);
-        Object loadedData = repo.load();
-        if (loadedData instanceof User) {
-            currentUser = (User) loadedData;
-        }
-    }
+    private Stage primaryStage;
 
     @Override
     public void start(Stage primaryStage) {
+        this.primaryStage = primaryStage;
         primaryStage.setTitle("OSS Fitness Tracker Pro");
-        if (currentUser == null) {
-            showOnboarding(primaryStage);
+        showLoginScreen();
+    }
+
+    private void showLoginScreen() {
+        VBox root = new VBox(20);
+        root.setPadding(new Insets(50));
+        root.setAlignment(Pos.CENTER);
+        root.getStyleClass().add("root");
+
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(30));
+        container.getStyleClass().add("main-container");
+        container.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Fitness Tracker");
+        title.setStyle("-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: #2d3436;");
+
+        TextField idField = new TextField();
+        idField.setPromptText("사용자 아이디 (예: gemini)");
+        idField.setMaxWidth(250);
+
+        Button loginBtn = new Button("로그인 / 시작하기");
+        loginBtn.getStyleClass().add("primary-button");
+        loginBtn.setMaxWidth(250);
+
+        loginBtn.setOnAction(e -> {
+            String userId = idField.getText().trim();
+            if (userId.isEmpty()) {
+                showAlert("아이디를 입력해주세요.");
+                return;
+            }
+            handleLogin(userId);
+        });
+
+        container.getChildren().addAll(title, new Label("로그인하여 데이터를 안전하게 보관하세요."), idField, loginBtn);
+        root.getChildren().add(container);
+
+        Scene scene = new Scene(root, 500, 400);
+        loadCSS(scene);
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+
+    private void handleLogin(String userId) {
+        String filePath = USERS_DIR + userId + ".dat";
+        FileRepository repo = new FileRepository(filePath);
+        workoutManager = new WorkoutManager(repo);
+        
+        Object data = repo.load();
+        if (data instanceof User) {
+            currentUser = (User) data;
+            showMainUI();
         } else {
-            showMainUI(primaryStage);
+            showOnboarding(userId);
         }
     }
 
-    private void showOnboarding(Stage stage) {
+    private void showOnboarding(String userId) {
         VBox root = new VBox(20);
         root.setPadding(new Insets(30));
         root.getStyleClass().add("root");
@@ -53,349 +92,93 @@ public class MainApp extends Application {
         container.setPadding(new Insets(25));
         container.getStyleClass().add("main-container");
 
-        Label title = new Label("프로필 설정");
+        Label title = new Label("첫 방문을 환영합니다!");
         title.getStyleClass().add("title-label");
 
-        TextField nameField = new TextField();
-        nameField.setPromptText("이름 입력");
-
-        TextField weightField = new TextField();
-        weightField.setPromptText("현재 체중 (kg)");
-
-        TextField targetWeightField = new TextField();
-        targetWeightField.setPromptText("목표 체중 (kg)");
-
+        TextField nameField = new TextField(); nameField.setPromptText("이름");
+        TextField weightField = new TextField(); weightField.setPromptText("현재 체중 (kg)");
+        TextField targetField = new TextField(); targetWeightField.setPromptText("목표 체중 (kg)");
         ComboBox<String> goalCombo = new ComboBox<>();
         goalCombo.getItems().addAll("근비대", "다이어트", "체력 증진");
-        goalCombo.setPromptText("운동 목적 선택");
+        goalCombo.setPromptText("운동 목적");
         goalCombo.setMaxWidth(Double.MAX_VALUE);
 
-        Button submitBtn = new Button("시작하기");
-        submitBtn.getStyleClass().add("primary-button");
-        submitBtn.setMaxWidth(Double.MAX_VALUE);
-        
-        submitBtn.setOnAction(e -> {
-            try {
-                String name = nameField.getText();
-                double weight = Double.parseDouble(weightField.getText());
-                double targetWeight = Double.parseDouble(targetWeightField.getText());
-                String goal = goalCombo.getValue();
-
-                if (name.isEmpty() || goal == null) {
-                    showAlert("모든 정보를 입력해주세요.");
-                    return;
-                }
-
-                currentUser = new User(name, weight, targetWeight, goal);
-                workoutManager.setUser(currentUser);
-                workoutManager.saveUser();
-                showMainUI(stage);
-            } catch (Exception ex) {
-                showAlert("입력값을 확인해주세요.");
-            }
-        });
-
-        container.getChildren().addAll(title, nameField, weightField, targetWeightField, goalCombo, submitBtn);
-        root.getChildren().add(container);
-
-        Scene scene = new Scene(root, 450, 600);
-        loadCSS(scene);
-        stage.setScene(scene);
-        stage.show();
-    }
-
-    private void showMainUI(Stage stage) {
-        mainTabPane = new TabPane();
-        mainTabPane.getStyleClass().add("root");
-
-        Tab dashTab = new Tab("대시보드", createDashboardView(stage));
-        Tab routineTab = new Tab("루틴 관리", createRoutineManagementView(stage));
-        Tab logTab = new Tab("운동 기록", createLogView());
-        Tab metricTab = new Tab("체성분 관리", createBodyMetricView());
-
-        dashTab.setClosable(false);
-        routineTab.setClosable(false);
-        logTab.setClosable(false);
-        metricTab.setClosable(false);
-
-        mainTabPane.getTabs().addAll(dashTab, routineTab, logTab, metricTab);
-
-        Scene scene = new Scene(mainTabPane, 700, 850);
-        loadCSS(scene);
-        stage.setScene(scene);
-        stage.show();
-    }
-
-    private VBox createDashboardView(Stage stage) {
-        VBox container = new VBox(20);
-        container.setPadding(new Insets(25));
-        container.getStyleClass().add("main-container");
-
-        Label title = new Label(currentUser.getName() + "님, 안녕하세요!");
-        title.getStyleClass().add("title-label");
-
-        Label stats = new Label(String.format("목표: %s | 현재 체중: %.1fkg", currentUser.getGoal(), currentUser.getWeight()));
-        stats.getStyleClass().add("info-label");
-
-        Button recommendBtn = new Button("목적별 루틴 추천받기");
-        recommendBtn.getStyleClass().add("primary-button");
-        recommendBtn.setMaxWidth(Double.MAX_VALUE);
-
-        TextArea routineArea = new TextArea();
-        routineArea.setEditable(false);
-        routineArea.setPrefHeight(200);
-        routineArea.setPromptText("루틴을 추천받거나 관리 탭에서 루틴을 선택하세요.");
-
-        workoutManager.setUser(currentUser);
-        recommendBtn.setOnAction(e -> {
-            applyAutoStrategy();
-            Routine r = workoutManager.recommendRoutine();
-            displayRoutine(r, routineArea);
-        });
-
-        Button startBtn = new Button("상세 기록하며 운동 시작");
+        Button startBtn = new Button("프로필 생성");
         startBtn.getStyleClass().add("primary-button");
-        startBtn.setStyle("-fx-background-color: #6c5ce7;");
         startBtn.setMaxWidth(Double.MAX_VALUE);
 
         startBtn.setOnAction(e -> {
-            Routine currentRoutine = workoutManager.recommendRoutine();
-            if (currentRoutine == null || routineArea.getText().isEmpty()) {
-                showAlert("운동할 루틴을 먼저 결정해주세요!");
-                return;
-            }
-            showWorkoutRecordingUI(stage, currentRoutine);
+            try {
+                currentUser = new User(nameField.getText(), Double.parseDouble(weightField.getText()), 
+                                       Double.parseDouble(targetField.getText()), goalCombo.getValue());
+                workoutManager.setUser(currentUser);
+                workoutManager.saveUser();
+                showMainUI();
+            } catch (Exception ex) { showAlert("모든 정보를 올바르게 입력해주세요."); }
         });
 
-        Button resetBtn = new Button("설정 초기화");
-        resetBtn.getStyleClass().add("danger-button");
-        resetBtn.setOnAction(e -> {
-            new java.io.File(USER_DATA_FILE).delete();
-            currentUser = null;
-            showOnboarding(stage);
-        });
-
-        container.getChildren().addAll(title, stats, recommendBtn, routineArea, startBtn, resetBtn);
-        return container;
+        container.getChildren().addAll(title, nameField, weightField, targetField, goalCombo, startBtn);
+        root.getChildren().add(container);
+        Scene scene = new Scene(root, 450, 600);
+        loadCSS(scene);
+        primaryStage.setScene(scene);
     }
 
-    private VBox createRoutineManagementView(Stage stage) {
+    private void showMainUI() {
+        mainTabPane = new TabPane();
+        mainTabPane.getStyleClass().add("root");
+
+        Tab routineTab = new Tab("루틴 관리", createRoutineManagementView());
+        Tab recommendTab = new Tab("추천 루틴", createRecommendView());
+        Tab reportTab = new Tab("리포트", createReportView());
+        Tab myPageTab = new Tab("My Page", createMyPageView());
+
+        routineTab.setClosable(false);
+        recommendTab.setClosable(false);
+        reportTab.setClosable(false);
+        myPageTab.setClosable(false);
+
+        mainTabPane.getTabs().addAll(routineTab, recommendTab, reportTab, myPageTab);
+
+        Scene scene = new Scene(mainTabPane, 800, 900);
+        loadCSS(scene);
+        primaryStage.setScene(scene);
+    }
+
+    // --- Tab Views (Placeholders for next turn) ---
+    private VBox createRoutineManagementView() {
         VBox container = new VBox(15);
         container.setPadding(new Insets(25));
         container.getStyleClass().add("main-container");
 
-        Label title = new Label("나만의 루틴 관리");
+        Label title = new Label("루틴 보관함");
         title.getStyleClass().add("title-label");
 
         ListView<Routine> routineListView = new ListView<>();
         routineListView.getItems().addAll(currentUser.getSavedRoutines());
-        routineListView.setPrefHeight(200);
+        routineListView.setPrefHeight(300);
 
         Button createBtn = new Button("+ 새 루틴 만들기");
         createBtn.getStyleClass().add("primary-button");
         createBtn.setMaxWidth(Double.MAX_VALUE);
-        createBtn.setOnAction(e -> showCustomRoutineDesigner(stage));
+        createBtn.setOnAction(e -> showCustomRoutineDesigner());
 
-        Button selectBtn = new Button("선택한 루틴 대시보드에 적용");
-        selectBtn.getStyleClass().add("primary-button");
-        selectBtn.setStyle("-fx-background-color: #00b894;");
-        selectBtn.setMaxWidth(Double.MAX_VALUE);
-        selectBtn.setOnAction(e -> {
+        Button startBtn = new Button("선택한 루틴으로 운동 시작");
+        startBtn.getStyleClass().add("primary-button");
+        startBtn.setStyle("-fx-background-color: #6c5ce7;");
+        startBtn.setMaxWidth(Double.MAX_VALUE);
+        startBtn.setOnAction(e -> {
             Routine selected = routineListView.getSelectionModel().getSelectedItem();
             if (selected != null) {
-                workoutManager.setStrategy(user -> selected);
-                mainTabPane.getSelectionModel().select(0); // 대시보드 탭으로 이동
-                showAlert(selected.getRoutineName() + " 루틴이 적용되었습니다.");
+                showWorkoutRecordingUI(selected);
             }
         });
 
-        container.getChildren().addAll(title, new Label("저장된 루틴 목록:"), routineListView, selectBtn, createBtn);
+        container.getChildren().addAll(title, new Label("내가 만든 루틴:"), routineListView, startBtn, createBtn);
         return container;
     }
 
-    private void showWorkoutRecordingUI(Stage stage, Routine routine) {
-        VBox root = new VBox(20);
-        root.setPadding(new Insets(30));
-        root.getStyleClass().add("root");
-
-        VBox container = new VBox(15);
-        container.setPadding(new Insets(25));
-        container.getStyleClass().add("main-container");
-
-        Label title = new Label(routine.getRoutineName() + " 진행 중");
-        title.getStyleClass().add("title-label");
-
-        // [One-tap] 이전 기록 찾아오기 로직
-        com.fitness.domain.WorkoutSession lastSession = currentUser.getWorkoutSessions().stream()
-                .filter(s -> s.getRoutineName().equals(routine.getRoutineName()))
-                .reduce((first, second) -> second).orElse(null);
-
-        com.fitness.domain.WorkoutSession currentSession = new com.fitness.domain.WorkoutSession(routine.getRoutineName());
-        
-        TextField weightInput = new TextField(); 
-        TextField repsInput = new TextField(); 
-        
-        // 이전 기록이 있으면 자동으로 채우기
-        if (lastSession != null && !lastSession.getSetRecords().isEmpty()) {
-            var lastSet = lastSession.getSetRecords().get(0);
-            weightInput.setText(String.valueOf(lastSet.getWeight()));
-            repsInput.setText(String.valueOf(lastSet.getReps()));
-            showAlert("이전 기록을 불러왔습니다: " + lastSet.getWeight() + "kg x " + lastSet.getReps() + "회");
-        } else {
-            weightInput.setPromptText("무게 (kg)");
-            repsInput.setPromptText("횟수 (reps)");
-        }
-        
-        ListView<String> currentSessionSets = new ListView<>();
-        currentSessionSets.setPrefHeight(150);
-
-        // [타이머] UI
-        Label timerLabel = new Label("휴식 시간: - ");
-        timerLabel.setStyle("-fx-font-size: 18px; -fx-text-fill: #e67e22; -fx-font-weight: bold;");
-        
-        Button addSetBtn = new Button("세트 기록 추가 & 휴식 시작");
-        addSetBtn.getStyleClass().add("primary-button");
-        addSetBtn.setOnAction(e -> {
-            try {
-                double w = Double.parseDouble(weightInput.getText());
-                int r = Integer.parseInt(repsInput.getText());
-                com.fitness.domain.SetRecord record = new com.fitness.domain.SetRecord("운동", currentSession.getSetRecords().size() + 1, w, r);
-                currentSession.addSetRecord(record);
-                currentSessionSets.getItems().add(String.format("Set %d: %.1fkg x %d", record.getSetNumber(), w, r));
-                
-                // 휴식 타이머 가동 (60초)
-                startRestTimer(timerLabel);
-            } catch (Exception ex) { showAlert("숫자를 입력하세요."); }
-        });
-
-        // [시각화] 가이드 링크
-        VBox guideBox = new VBox(5);
-        Label guideTitle = new Label("운동 가이드:");
-        guideTitle.getStyleClass().add("info-label");
-        guideBox.getChildren().add(guideTitle);
-        
-        for (Exercise ex : routine.getExercises()) {
-            if (ex.getVideoUrl() != null && !ex.getVideoUrl().isEmpty()) {
-                Hyperlink link = new Hyperlink(ex.getName() + " 영상 가이드 보기");
-                link.setOnAction(ev -> getHostServices().showDocument(ex.getVideoUrl()));
-                guideBox.getChildren().add(link);
-            }
-        }
-
-        Button finishBtn = new Button("운동 종료 및 저장");
-        finishBtn.getStyleClass().add("primary-button");
-        finishBtn.setStyle("-fx-background-color: #27ae60;");
-        finishBtn.setMaxWidth(Double.MAX_VALUE);
-        finishBtn.setOnAction(e -> {
-            if (currentSession.getSetRecords().isEmpty()) {
-                showAlert("기록된 세트가 없습니다.");
-                return;
-            }
-            currentSession.endSession();
-            currentUser.addWorkoutSession(currentSession);
-            workoutManager.saveUser();
-            showMainUI(stage);
-            showAlert("운동이 기록되었습니다! 총 볼륨: " + currentSession.getTotalVolume() + "kg");
-        });
-
-        container.getChildren().addAll(title, guideBox, new Label("기록 입력:"), weightInput, repsInput, addSetBtn, timerLabel, currentSessionSets, finishBtn);
-        root.getChildren().add(container);
-
-        Scene scene = new Scene(root, 550, 800);
-        loadCSS(scene);
-        stage.setScene(scene);
-    }
-
-    private void startRestTimer(Label label) {
-        final int[] time = {60};
-        javafx.animation.Timeline timeline = new javafx.animation.Timeline(
-            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> {
-                time[0]--;
-                label.setText("휴식 시간: " + time[0] + "초 남음");
-                if (time[0] <= 0) {
-                    label.setText("휴식 종료! 다음 세트를 시작하세요.");
-                }
-            })
-        );
-        timeline.setCycleCount(60);
-        timeline.play();
-    }
-
-    private VBox createLogView() {
-        VBox container = new VBox(15);
-        container.setPadding(new Insets(25));
-        container.getStyleClass().add("main-container");
-
-        Label title = new Label("상세 운동 히스토리");
-        title.getStyleClass().add("title-label");
-
-        TextArea logArea = new TextArea();
-        logArea.setEditable(false);
-        logArea.setPrefHeight(500);
-
-        Button refreshBtn = new Button("내역 불러오기");
-        refreshBtn.getStyleClass().add("primary-button");
-        refreshBtn.setOnAction(e -> {
-            StringBuilder sb = new StringBuilder();
-            List<com.fitness.domain.WorkoutSession> sessions = currentUser.getWorkoutSessions();
-            for (int i = sessions.size() - 1; i >= 0; i--) {
-                com.fitness.domain.WorkoutSession s = sessions.get(i);
-                sb.append(String.format("[%s] %s\n", s.getStartTime().format(DateTimeFormatter.ofPattern("MM/dd HH:mm")), s.getRoutineName()));
-                sb.append(String.format("총 볼륨: %.1f kg\n", s.getTotalVolume()));
-                sb.append("----------------------------\n");
-            }
-            logArea.setText(sb.toString());
-        });
-
-        container.getChildren().addAll(title, logArea, refreshBtn);
-        return container;
-    }
-
-    private VBox createBodyMetricView() {
-        VBox container = new VBox(15);
-        container.setPadding(new Insets(25));
-        container.getStyleClass().add("main-container");
-
-        Label title = new Label("체성분 변화 추적");
-        title.getStyleClass().add("title-label");
-
-        TextField weightInput = new TextField(); weightInput.setPromptText("체중 (kg)");
-        TextField muscleInput = new TextField(); muscleInput.setPromptText("골격근량 (kg)");
-        TextField fatInput = new TextField(); fatInput.setPromptText("체지방률 (%)");
-
-        Button addBtn = new Button("기록 추가");
-        addBtn.getStyleClass().add("primary-button");
-        
-        ListView<String> metricList = new ListView<>();
-        metricList.setPrefHeight(300);
-
-        Runnable refreshMetrics = () -> {
-            metricList.getItems().clear();
-            for (com.fitness.domain.BodyMetric m : currentUser.getBodyMetrics()) {
-                String date = m.getDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-                metricList.getItems().add(String.format("[%s] 체중: %.1fkg | 근육: %.1fkg | 지방: %.1f%%", 
-                        date, m.getWeight(), m.getMuscleMass(), m.getFatPercentage()));
-            }
-        };
-
-        addBtn.setOnAction(e -> {
-            try {
-                double w = Double.parseDouble(weightInput.getText());
-                double m = Double.parseDouble(muscleInput.getText());
-                double f = Double.parseDouble(fatInput.getText());
-                currentUser.addBodyMetric(new com.fitness.domain.BodyMetric(w, m, f));
-                workoutManager.saveUser();
-                refreshMetrics.run();
-                showAlert("체성분 정보가 업데이트되었습니다.");
-            } catch (Exception ex) { showAlert("숫자를 올바르게 입력해주세요."); }
-        });
-
-        refreshMetrics.run();
-        container.getChildren().addAll(title, new Label("새 기록 입력:"), weightInput, muscleInput, fatInput, addBtn, new Label("이력:"), metricList);
-        return container;
-    }
-
-    private void showCustomRoutineDesigner(Stage stage) {
+    private void showCustomRoutineDesigner() {
         VBox root = new VBox(15);
         root.setPadding(new Insets(25));
         root.getStyleClass().add("root");
@@ -404,8 +187,11 @@ public class MainApp extends Application {
         container.setPadding(new Insets(20));
         container.getStyleClass().add("main-container");
 
+        Label title = new Label("나만의 루틴 만들기");
+        title.getStyleClass().add("title-label");
+
         TextField routineNameField = new TextField();
-        routineNameField.setPromptText("루틴 이름을 입력하세요 (예: 월요일 가슴운동)");
+        routineNameField.setPromptText("루틴 이름 (예: 퇴근 후 가슴)");
 
         ComboBox<String> categoryCombo = new ComboBox<>();
         categoryCombo.getItems().addAll("전체", "가슴", "등", "하체", "어깨", "이두", "삼두", "유산소");
@@ -426,7 +212,7 @@ public class MainApp extends Application {
             }
         });
 
-        Button saveBtn = new Button("루틴 저장 및 닫기");
+        Button saveBtn = new Button("루틴 저장");
         saveBtn.getStyleClass().add("primary-button");
         saveBtn.setMaxWidth(Double.MAX_VALUE);
         saveBtn.setOnAction(e -> {
@@ -440,18 +226,220 @@ public class MainApp extends Application {
             for(Exercise ex : selected) nr.addExercise(ex);
             currentUser.addRoutine(nr);
             workoutManager.saveUser();
-            showMainUI(stage);
+            showMainUI();
         });
 
         Button backBtn = new Button("취소");
-        backBtn.setOnAction(e -> showMainUI(stage));
+        backBtn.setOnAction(e -> showMainUI());
 
-        container.getChildren().addAll(new Label("루틴 명:"), routineNameField, new Label("부위 필터:"), categoryCombo, exerciseList, saveBtn, backBtn);
+        container.getChildren().addAll(title, new Label("루틴 이름:"), routineNameField, new Label("부위 필터:"), categoryCombo, exerciseList, saveBtn, backBtn);
         root.getChildren().add(container);
 
+        Scene scene = new Scene(root, 500, 750);
+        loadCSS(scene);
+        primaryStage.setScene(scene);
+    }
+
+    private void showWorkoutRecordingUI(Routine routine) {
+        VBox root = new VBox(20);
+        root.setPadding(new Insets(30));
+        root.getStyleClass().add("root");
+
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(25));
+        container.getStyleClass().add("main-container");
+
+        Label title = new Label(routine.getRoutineName() + " 진행 중");
+        title.getStyleClass().add("title-label");
+
+        // One-tap 기록 로직
+        com.fitness.domain.WorkoutSession lastSession = currentUser.getWorkoutSessions().stream()
+                .filter(s -> s.getRoutineName().equals(routine.getRoutineName()))
+                .reduce((first, second) -> second).orElse(null);
+
+        com.fitness.domain.WorkoutSession currentSession = new com.fitness.domain.WorkoutSession(routine.getRoutineName());
+        
+        TextField weightInput = new TextField(); 
+        TextField repsInput = new TextField(); 
+        if (lastSession != null && !lastSession.getSetRecords().isEmpty()) {
+            var lastSet = lastSession.getSetRecords().get(0);
+            weightInput.setText(String.valueOf(lastSet.getWeight()));
+            repsInput.setText(String.valueOf(lastSet.getReps()));
+        } else {
+            weightInput.setPromptText("무게 (kg)");
+            repsInput.setPromptText("횟수 (reps)");
+        }
+        
+        Label timerLabel = new Label("휴식 시간: - ");
+        timerLabel.setStyle("-fx-font-size: 18px; -fx-text-fill: #e67e22; -fx-font-weight: bold;");
+        
+        Button addSetBtn = new Button("세트 기록 & 휴식 시작");
+        addSetBtn.getStyleClass().add("primary-button");
+        addSetBtn.setOnAction(e -> {
+            try {
+                double w = Double.parseDouble(weightInput.getText());
+                int r = Integer.parseInt(repsInput.getText());
+                currentSession.addSetRecord(new com.fitness.domain.SetRecord("운동", currentSession.getSetRecords().size() + 1, w, r));
+                startRestTimer(timerLabel);
+            } catch (Exception ex) { showAlert("숫자를 입력하세요."); }
+        });
+
+        VBox guideBox = new VBox(5);
+        for (Exercise ex : routine.getExercises()) {
+            if (ex.getVideoUrl() != null && !ex.getVideoUrl().isEmpty()) {
+                Hyperlink link = new Hyperlink(ex.getName() + " 가이드");
+                link.setOnAction(ev -> getHostServices().showDocument(ex.getVideoUrl()));
+                guideBox.getChildren().add(link);
+            }
+        }
+
+        Button finishBtn = new Button("운동 종료 및 저장");
+        finishBtn.getStyleClass().add("primary-button");
+        finishBtn.setStyle("-fx-background-color: #27ae60;");
+        finishBtn.setOnAction(e -> {
+            if (currentSession.getSetRecords().isEmpty()) return;
+            currentSession.endSession();
+            currentUser.addWorkoutSession(currentSession);
+            workoutManager.saveUser();
+            showMainUI();
+            showAlert("기록되었습니다! 총 볼륨: " + currentSession.getTotalVolume() + "kg");
+        });
+
+        container.getChildren().addAll(title, guideBox, weightInput, repsInput, addSetBtn, timerLabel, finishBtn);
+        root.getChildren().add(container);
         Scene scene = new Scene(root, 500, 700);
         loadCSS(scene);
-        stage.setScene(scene);
+        primaryStage.setScene(scene);
+    }
+
+    private void startRestTimer(Label label) {
+        final int[] time = {60};
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> {
+                time[0]--;
+                label.setText("휴식: " + time[0] + "초 남음");
+                if (time[0] <= 0) label.setText("휴식 종료! 다음 세트 Go!");
+            })
+        );
+        timeline.setCycleCount(60);
+        timeline.play();
+    }
+    private VBox createRecommendView() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(25));
+        container.getStyleClass().add("main-container");
+
+        Label title = new Label(currentUser.getGoal() + " 추천 루틴");
+        title.getStyleClass().add("title-label");
+
+        TextArea routineArea = new TextArea();
+        routineArea.setEditable(false);
+        routineArea.setPrefHeight(300);
+
+        Button refreshBtn = new Button("추천 루틴 새로고침");
+        refreshBtn.getStyleClass().add("primary-button");
+        refreshBtn.setOnAction(e -> {
+            applyAutoStrategy();
+            Routine r = workoutManager.recommendRoutine();
+            if (r != null) {
+                StringBuilder sb = new StringBuilder("== " + r.getRoutineName() + " ==\n");
+                for (Exercise ex : r.getExercises()) sb.append("- ").append(ex.displayGuide()).append("\n");
+                routineArea.setText(sb.toString());
+            }
+        });
+
+        Button startBtn = new Button("이 루틴으로 바로 운동 시작");
+        startBtn.getStyleClass().add("primary-button");
+        startBtn.setStyle("-fx-background-color: #6c5ce7;");
+        startBtn.setOnAction(e -> {
+            applyAutoStrategy();
+            Routine r = workoutManager.recommendRoutine();
+            if (r != null) showWorkoutRecordingUI(r);
+        });
+
+        container.getChildren().addAll(title, new Label("회원님의 목적에 맞는 전문가 추천 루틴입니다."), routineArea, refreshBtn, startBtn);
+        return container;
+    }
+
+    private VBox createReportView() {
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(25));
+        container.getStyleClass().add("main-container");
+
+        Label title = new Label("활동 리포트");
+        title.getStyleClass().add("title-label");
+
+        TabPane reportTabs = new TabPane();
+        
+        VBox sessionBox = new VBox(10);
+        sessionBox.setPadding(new Insets(10));
+        ListView<String> sessionList = new ListView<>();
+        for (WorkoutSession s : currentUser.getWorkoutSessions()) {
+            sessionList.getItems().add(0, String.format("[%s] %s | %.1fkg", 
+                s.getStartTime().format(DateTimeFormatter.ofPattern("MM/dd")), s.getRoutineName(), s.getTotalVolume()));
+        }
+        sessionBox.getChildren().add(sessionList);
+        Tab sTab = new Tab("운동 히스토리", sessionBox);
+        sTab.setClosable(false);
+
+        VBox metricBox = new VBox(10);
+        metricBox.setPadding(new Insets(10));
+        ListView<String> metricList = new ListView<>();
+        for (BodyMetric m : currentUser.getBodyMetrics()) {
+            metricList.getItems().add(0, String.format("[%s] 체중: %.1fkg | 근육: %.1fkg", 
+                m.getDate().format(DateTimeFormatter.ofPattern("MM/dd")), m.getWeight(), m.getMuscleMass()));
+        }
+        TextField wIn = new TextField(); wIn.setPromptText("체중(kg)");
+        TextField mIn = new TextField(); mIn.setPromptText("골격근량(kg)");
+        Button addM = new Button("오늘의 체성분 기록");
+        addM.setOnAction(e -> {
+            try {
+                currentUser.addBodyMetric(new BodyMetric(Double.parseDouble(wIn.getText()), Double.parseDouble(mIn.getText()), 0));
+                workoutManager.saveUser();
+                showAlert("기록되었습니다!");
+                showMainUI();
+            } catch (Exception ex) { showAlert("숫자를 입력하세요."); }
+        });
+        metricBox.getChildren().addAll(metricList, wIn, mIn, addM);
+        Tab mTab = new Tab("체성분 변화", metricBox);
+        mTab.setClosable(false);
+
+        reportTabs.getTabs().addAll(sTab, mTab);
+        container.getChildren().addAll(title, reportTabs);
+        return container;
+    }
+
+    private VBox createMyPageView() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(25));
+        container.getStyleClass().add("main-container");
+
+        Label title = new Label("마이 페이지");
+        title.getStyleClass().add("title-label");
+
+        Label nameLabel = new Label("이름: " + currentUser.getName());
+        Label goalLabel = new Label("현재 목적: " + currentUser.getGoal());
+
+        ComboBox<String> changeGoal = new ComboBox<>();
+        changeGoal.getItems().addAll("근비대", "다이어트", "체력 증진");
+        changeGoal.setPromptText("목적 변경하기");
+        
+        Button saveGoalBtn = new Button("목적 업데이트");
+        saveGoalBtn.setOnAction(e -> {
+            if (changeGoal.getValue() != null) {
+                currentUser.updateProfile(currentUser.getName(), currentUser.getWeight(), currentUser.getTargetWeight(), changeGoal.getValue());
+                workoutManager.saveUser();
+                showAlert("목적이 변경되었습니다. 추천 루틴 탭을 확인하세요!");
+                showMainUI();
+            }
+        });
+
+        Button logoutBtn = new Button("로그아웃");
+        logoutBtn.getStyleClass().add("danger-button");
+        logoutBtn.setOnAction(e -> showLoginScreen());
+
+        container.getChildren().addAll(title, nameLabel, goalLabel, new Separator(), new Label("목적 변경 (기존 데이터는 유지됩니다):"), changeGoal, saveGoalBtn, new Separator(), logoutBtn);
+        return container;
     }
 
     private void applyAutoStrategy() {
@@ -461,25 +449,17 @@ public class MainApp extends Application {
         else workoutManager.setStrategy(new com.fitness.service.BeginnerStrategy());
     }
 
-    private void displayRoutine(Routine routine, TextArea area) {
-        if (routine == null) return;
-        StringBuilder sb = new StringBuilder();
-        sb.append("== ").append(routine.getRoutineName()).append(" ==\n");
-        for (Exercise ex : routine.getExercises()) sb.append("- ").append(ex.displayGuide()).append("\n");
-        area.setText(sb.toString());
-    }
-
     private void loadCSS(Scene scene) {
         if (getClass().getResource("/style.css") != null) {
             scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
         }
     }
 
-    private void showAlert(String message) {
+    private void showAlert(String msg) {
         Alert a = new Alert(Alert.AlertType.INFORMATION);
         a.setTitle("알림");
         a.setHeaderText(null);
-        a.setContentText(message);
+        a.setContentText(msg);
         a.showAndWait();
     }
 
