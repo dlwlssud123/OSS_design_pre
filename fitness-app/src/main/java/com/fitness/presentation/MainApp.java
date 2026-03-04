@@ -25,7 +25,6 @@ public class MainApp extends Application {
         FileRepository repo = new FileRepository(USER_DATA_FILE);
         workoutManager = new WorkoutManager(repo);
         
-        // Try to load user
         Object loadedData = repo.load();
         if (loadedData instanceof User) {
             currentUser = (User) loadedData;
@@ -139,7 +138,6 @@ public class MainApp extends Application {
         routineArea.setEditable(false);
         routineArea.setPrefHeight(200);
 
-        // 사용자의 목적(Goal)에 따라 전략 자동 선택
         workoutManager.setUser(currentUser);
         String goal = currentUser.getGoal();
         if ("근비대".equals(goal)) {
@@ -227,7 +225,7 @@ public class MainApp extends Application {
                 if (empty || item == null) {
                     setText(null);
                 } else {
-                    setText(item.getName() + " (" + item.getTargetArea() + ")");
+                    setText(item.getName() + " (" + item.getTargetMuscle() + ")");
                 }
             }
         });
@@ -248,8 +246,6 @@ public class MainApp extends Application {
                 customRoutine.addExercise(ex);
             }
             
-            // WorkoutManager에 직접 설정할 수 있는 방법이 필요하므로 
-            // 전략 패턴을 우회하거나 커스텀 전략을 임시로 생성
             workoutManager.setStrategy(user -> customRoutine);
             showDashboard(stage);
         });
